@@ -1,7 +1,8 @@
 from django.urls import path
-from .views import TranscribeAPI
+from .views import SpeechToTextAPIView
 
 urlpatterns = [
-    path('api/transcribe/', TranscribeAPI.as_view(), name='transcribe'),
-    # Add other API endpoints here as needed
+    path('transcribe/', SpeechToTextAPIView.as_view(), name='speech_to_text'),
 ]
+# This file defines the URL patterns for the speech_to_text app.
+# It includes a single endpoint for transcribing audio files.
