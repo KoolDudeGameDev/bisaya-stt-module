@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+bisaya-stt-env/
+*.db
+.env
+.git
+.gitignore
