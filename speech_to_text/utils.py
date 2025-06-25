@@ -4,6 +4,7 @@ import librosa
 import soundfile as sf
 import os
 
+
 # Hugging Face ASR pipeline abstraction — Wav2Vec2 model
 asr_pipeline = pipeline(
     task="automatic-speech-recognition",
@@ -13,7 +14,7 @@ asr_pipeline = pipeline(
 )
 
 
-def transcribe_audio_file(file_path):
+def transcribe_with_wav2vec2(file_path):
     # Load and resample the audio file
     speech, sample_rate = librosa.load(file_path, sr=16000)
 
@@ -22,9 +23,18 @@ def transcribe_audio_file(file_path):
     sf.write(temp_wav, speech, 16000)
 
     # Transcribe using the pipeline
-    result = asr_pipeline(temp_wav)
-
-    # Clean up the temporary file
-    os.remove(temp_wav)
+    try:
+        result = asr_pipeline(temp_wav)
+    finally:
+        # Ensure the temporary file is removed even if an error occurs
+        if os.path.exists(temp_wav):
+            os.remove(temp_wav)
 
     return result['text']
+
+
+def is_transcription_confident(text: str) -> bool:
+    if not text:
+        return False
+    return len(text.split()) >= 3
+
