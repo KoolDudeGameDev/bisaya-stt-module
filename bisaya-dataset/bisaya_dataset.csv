@@ -1,101 +1,101 @@
 path,text,category
-audio/sample1.wav,usa,1
-audio/sample2.wav,duha,1
-audio/sample3.wav,tulo tulo,1
-audio/sample4.wav,upat,1
-audio/sample5.wav,lima singko,1
-audio/sample6.wav,unom kabuok,1
-audio/sample7.wav,pito siyete,1
-audio/sample8.wav,otso walo,1
-audio/sample9.wav,siyam nuybe,1
-audio/sample10.wav,pulo kabuok,1
-audio/sample11.wav,ensamada,2
-audio/sample12.wav,ensaymada ensaymada,2
-audio/sample13.wav,slice bread,2
-audio/sample14.wav,slice bread special,2
-audio/sample15.wav,shakoy,2
-audio/sample16.wav,naa moi donut naa moi donut,2
-audio/sample17.wav,yoyo,2
-audio/sample18.wav,papalita ko ug francis,2
-audio/sample19.wav,francis,2
-audio/sample20.wav,ensaymada,2
-audio/sample21.wav,pandesal,2
-audio/sample22.wav,cheese bread,2
-audio/sample23.wav,fig pie,2
-audio/sample24.wav,spanish bread,2
-audio/sample25.wav,pan de coco,2
-audio/sample26.wav,monay,2
-audio/sample27.wav,mamon,2
-audio/sample28.wav,siopao,2
-audio/sample29.wav,ube bread,2
-audio/sample30.wav,egg bread,2
-audio/sample31.wav,uno,1
-audio/sample32.wav,dos,1
-audio/sample33.wav,tres,1
-audio/sample34.wav,kuatro,1
-audio/sample35.wav,singko,1
-audio/sample36.wav,says,1
-audio/sample37.wav,siyete,1
-audio/sample38.wav,otso,1
-audio/sample39.wav,nuybe,1
-audio/sample40.wav,dyes,1
-audio/sample41.wav,onsi,1
-audio/sample42.wav,dosi,1
-audio/sample43.wav,tresi,1
-audio/sample44.wav,katorsi,1
-audio/sample45.wav,kinsi,1
-audio/sample46.wav,desi says,1
-audio/sample47.wav,desi siyete,1
-audio/sample48.wav,desi otso,1
-audio/sample49.wav,desi nuybe,1
-audio/sample50.wav,baynte,1
-audio/sample51.wav,crinkles,2
-audio/sample52.wav,moon cake,2
-audio/sample53.wav,burikat,2
-audio/sample54.wav,monay,2
-audio/sample55.wav,shakoy,2
-audio/sample56.wav,siopao,2
-audio/sample57.wav,egg bread,2
-audio/sample58.wav,pan de coco,2
-audio/sample59.wav,pan de julia,2
-audio/sample60.wav,pan de leche,2
-audio/sample61.wav,pandesal,2
-audio/sample62.wav,king roll,2
-audio/sample63.wav,cheese bread,2
-audio/sample64.wav,fig pie,2
-audio/sample65.wav,mamon,2
-audio/sample66.wav,garlic bread,2
-audio/sample67.wav,donut,2
-audio/sample68.wav,donut,2
-audio/sample69.wav,yoyo,2
-audio/sample70.wav,cinnamon bread,2
-audio/sample71.wav,usa,1
-audio/sample72.wav,duha,1
-audio/sample73.wav,tulo,1
-audio/sample74.wav,upat,1
-audio/sample75.wav,lima,1
-audio/sample76.wav,unom,1
-audio/sample77.wav,pito,1
-audio/sample78.wav,walo,1
-audio/sample79.wav,siyam,1
-audio/sample80.wav,pulo,1
-audio/sample81.wav,napulog usa,1
-audio/sample82.wav,napulog duha,1
-audio/sample83.wav,napulog tulo,1
-audio/sample84.wav,napulog upat,1
-audio/sample85.wav,napulog lima,1
-audio/sample86.wav,napulog unom,1
-audio/sample87.wav,napulog pito,1
-audio/sample88.wav,napulog walo,1
-audio/sample89.wav,napulog siyam,1
-audio/sample90.wav,baynte,1
-audio/sample91.wav,baynte uno,1
-audio/sample92.wav,baynte dos,1
-audio/sample93.wav,baynte tres,1
-audio/sample94.wav,baynte kuatro,1
-audio/sample95.wav,baynte singko,1
-audio/sample96.wav,baynte says,1
-audio/sample97.wav,baynte siyete,1
-audio/sample98.wav,baynte otso,1
-audio/sample99.wav,baynte nuybe,1
-audio/sample100.wav,traynta,1
+audio/sample1.wav,usa,number
+audio/sample2.wav,duha,number
+audio/sample3.wav,tulo tulo,number
+audio/sample4.wav,upat,number
+audio/sample5.wav,lima singko,number
+audio/sample6.wav,unom kabuok,number
+audio/sample7.wav,pito siyete,number
+audio/sample8.wav,otso walo,number
+audio/sample9.wav,siyam nuybe,number
+audio/sample10.wav,pulo kabuok,number
+audio/sample11.wav,ensamada,bread
+audio/sample12.wav,ensaymada ensaymada,bread
+audio/sample13.wav,slice bread,bread
+audio/sample14.wav,slice bread special,bread
+audio/sample15.wav,shakoy,bread
+audio/sample16.wav,naa moi donut naa moi donut,bread
+audio/sample17.wav,yoyo,bread
+audio/sample18.wav,papalita ko ug francis,bread
+audio/sample19.wav,francis,bread
+audio/sample20.wav,ensaymada,bread
+audio/sample21.wav,pandesal,bread
+audio/sample22.wav,cheese bread,bread
+audio/sample23.wav,fig pie,bread
+audio/sample24.wav,spanish bread,bread
+audio/sample25.wav,pan de coco,bread
+audio/sample26.wav,monay,bread
+audio/sample27.wav,mamon,bread
+audio/sample28.wav,siopao,bread
+audio/sample29.wav,ube bread,bread
+audio/sample30.wav,egg bread,bread
+audio/sample31.wav,uno,number
+audio/sample32.wav,dos,number
+audio/sample33.wav,tres,number
+audio/sample34.wav,kuatro,number
+audio/sample35.wav,singko,number
+audio/sample36.wav,says,number
+audio/sample37.wav,siyete,number
+audio/sample38.wav,otso,number
+audio/sample39.wav,nuybe,number
+audio/sample40.wav,dyes,number
+audio/sample41.wav,onsi,number
+audio/sample42.wav,dosi,number
+audio/sample43.wav,tresi,number
+audio/sample44.wav,katorsi,number
+audio/sample45.wav,kinsi,number
+audio/sample46.wav,desi says,number
+audio/sample47.wav,desi siyete,number
+audio/sample48.wav,desi otso,number
+audio/sample49.wav,desi nuybe,number
+audio/sample50.wav,baynte,number
+audio/sample51.wav,crinkles,bread
+audio/sample52.wav,moon cake,bread
+audio/sample53.wav,burikat,bread
+audio/sample54.wav,monay,bread
+audio/sample55.wav,shakoy,bread
+audio/sample56.wav,siopao,bread
+audio/sample57.wav,egg bread,bread
+audio/sample58.wav,pan de coco,bread
+audio/sample59.wav,pan de julia,bread
+audio/sample60.wav,pan de leche,bread
+audio/sample61.wav,pandesal,bread
+audio/sample62.wav,king roll,bread
+audio/sample63.wav,cheese bread,bread
+audio/sample64.wav,fig pie,bread
+audio/sample65.wav,mamon,bread
+audio/sample66.wav,garlic bread,bread
+audio/sample67.wav,donut,bread
+audio/sample68.wav,donut,bread
+audio/sample69.wav,yoyo,bread
+audio/sample70.wav,cinnamon bread,bread
+audio/sample71.wav,usa,number
+audio/sample72.wav,duha,number
+audio/sample73.wav,tulo,number
+audio/sample74.wav,upat,number
+audio/sample75.wav,lima,number
+audio/sample76.wav,unom,number
+audio/sample77.wav,pito,number
+audio/sample78.wav,walo,number
+audio/sample79.wav,siyam,number
+audio/sample80.wav,pulo,number
+audio/sample81.wav,napulog usa,number
+audio/sample82.wav,napulog duha,number
+audio/sample83.wav,napulog tulo,number
+audio/sample84.wav,napulog upat,number
+audio/sample85.wav,napulog lima,number
+audio/sample86.wav,napulog unom,number
+audio/sample87.wav,napulog pito,number
+audio/sample88.wav,napulog walo,number
+audio/sample89.wav,napulog siyam,number
+audio/sample90.wav,baynte,number
+audio/sample91.wav,baynte uno,number
+audio/sample92.wav,baynte dos,number
+audio/sample93.wav,baynte tres,number
+audio/sample94.wav,baynte kuatro,number
+audio/sample95.wav,baynte singko,number
+audio/sample96.wav,baynte says,number
+audio/sample97.wav,baynte siyete,number
+audio/sample98.wav,baynte otso,number
+audio/sample99.wav,baynte nuybe,number
+audio/sample100.wav,traynta,number
