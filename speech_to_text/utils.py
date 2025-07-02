@@ -4,12 +4,13 @@ import librosa
 import soundfile as sf
 import os
 
+print("[INFO] Loaded ASR model: kylegregory/wav2vec2-bisaya")
 
 # Hugging Face ASR pipeline abstraction — Wav2Vec2 model
 asr_pipeline = pipeline(
     task="automatic-speech-recognition",
-    # Replace with fine-tuned Bisaya model in the future
-    model="facebook/wav2vec2-base-960h",
+    chunk_length_s=15,
+    model="kylegregory/wav2vec2-bisaya",
     device=0 if torch.cuda.is_available() else -1
 )
 
@@ -25,6 +26,8 @@ def transcribe_with_wav2vec2(file_path):
     # Transcribe using the pipeline
     try:
         result = asr_pipeline(temp_wav)
+    except Exception as e:
+        raise RuntimeError(f"Transcription failed: {e}")
     finally:
         # Ensure the temporary file is removed even if an error occurs
         if os.path.exists(temp_wav):
@@ -37,4 +40,5 @@ def is_transcription_confident(text: str) -> bool:
     if not text:
         return False
     return len(text.split()) >= 3
+
 

@@ -30,20 +30,33 @@ def record_sample(index):
     wav.write(path, SAMPLE_RATE, audio)
     print(f"[✅] Saved to {path}")
 
+    # Playback for review
+    print("[🔊] Playing back the recording...")
+    sd.play(audio, SAMPLE_RATE)
+    sd.wait()
+
+    # Confirm quality
+    review = input("Keep this recording? (y/n): ").strip().lower()
+    if review != 'y':
+        os.remove(path)
+        print("[🗑️] Recording deleted. Please re-record.")
+        return False
+
     transcript = input("Enter transcription (Bisaya): ").strip()
     category = input("Enter category (e.g., number, bread, greeting): ").strip().lower()
 
     df.loc[len(df.index)] = [f"audio/{filename}", transcript, category]
     df.to_csv(CSV_PATH, index=False)
     print(f"[📝] Entry saved to {CSV_PATH}")
-
+    return True
 
 # Main loop
 if __name__ == "__main__":
     sample_index = len(df) + 1
     while True:
-        record_sample(sample_index)
-        sample_index += 1
+        success = record_sample(sample_index)
+        if success:
+            sample_index += 1
         cont = input("Record another? (y/n): ").strip().lower()
         if cont != 'y':
             break
