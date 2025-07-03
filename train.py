@@ -54,7 +54,7 @@ def compute_metrics(pred):
     from jiwer import wer
 
     # Decode predictions
-    pred_ids = torch.argmax(pred.predictions, dim=-1)
+    pred_ids = torch.argmax(torch.from_numpy(pred.predictions), dim=-1)
     pred_str = processor.batch_decode(pred_ids)
     label_str = processor.batch_decode(pred.label_ids, group_tokens=False)
 
@@ -81,16 +81,17 @@ def compute_metrics(pred):
 # Configure training arguments with optimized settings
 training_args = TrainingArguments(
     output_dir="./wav2vec2-bisaya",
-    save_strategy="epoch",
-    evaluation_strategy="steps",
+    save_strategy="steps",
+    eval_strategy="steps",
     eval_steps=100,
     per_device_train_batch_size=8,
-    gradient_accumulation_steps=1,
-    num_train_epochs=10,
-    fp16=torch.cuda.is_available(),
+    per_device_eval_batch_size=8,
+    gradient_accumulation_steps=2,
+    num_train_epochs=30,
+    fp16=False, # Disable FP16 for better compatibility
     save_steps=100,
     logging_steps=10,
-    learning_rate=1e-4,
+    learning_rate=5e-5,
     save_total_limit=3,
     lr_scheduler_type="linear",
     warmup_steps=500,
@@ -122,6 +123,8 @@ trainer = Trainer(
 # Start training
 print("Starting training...")
 trainer.train()
+#trainer.train(resume_from_checkpoint=True)
+
 
 # Save model and processor
 trainer.save_model("./wav2vec2-bisaya")

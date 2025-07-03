@@ -9,10 +9,6 @@
     "text": {
       "dtype": "string",
       "_type": "Value"
-    },
-    "category": {
-      "dtype": "string",
-      "_type": "Value"
     }
   },
   "homepage": "",
