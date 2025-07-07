@@ -37,6 +37,15 @@ class DataCollatorCTCWithPadding:
 dataset = load_from_disk("bisaya-training-ready-dataset")
 processor = Wav2Vec2Processor.from_pretrained("processor")
 
+# Filter out examples longer than 15 seconds
+MAX_INPUT_LENGTH_SEC = 15
+
+dataset = dataset.filter(
+    lambda example: len(example["input_values"]) <= int(
+        processor.feature_extractor.sampling_rate * MAX_INPUT_LENGTH_SEC
+    )
+)
+
 # Split into 90% train and 10% test
 dataset = dataset.train_test_split(test_size=0.1)
 
@@ -84,8 +93,8 @@ training_args = TrainingArguments(
     save_strategy="steps",
     eval_strategy="steps",
     eval_steps=100,
-    per_device_train_batch_size=8,
-    per_device_eval_batch_size=8,
+    per_device_train_batch_size=2,
+    per_device_eval_batch_size=2,
     gradient_accumulation_steps=2,
     num_train_epochs=30,
     fp16=False, # Disable FP16 for better compatibility
