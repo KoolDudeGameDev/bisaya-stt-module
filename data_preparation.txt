@@ -1,0 +1,61 @@
+╔════════════════════════════════════════════════════════════════╗
+║                        Data Preparation                        ║
+╠════════════════════════════════════════════════════════════════╣
+║ 1. Prepare Cebuano Text Corpus                                 ║
+║    ├─ Combine text sources (Kaggle, Alpaca, Daddy‑Ben).        ║
+║    └─ Save as `cebuano_text_corpus.txt`, one sentence per line.║
+╠════════════════════════════════════════════════════════════════╣
+║ 2. Generate Synthetic Audio via MMS‑TTS                        ║
+║    ├─ Run `prepare_synthetic_cebuano.py`                       ║
+║    │   ├→ Reads `cebuano_text_corpus.txt`, synthesizes WAVs    ║
+║    │   └→ Outputs `synthetic_manifest.csv` + `synthetic_cebuano_audio/`║
+╠════════════════════════════════════════════════════════════════╣
+║ 3. Load & Clean Existing Audio Data                            ║
+║    ├─ Inspect `bisaya_dataset.csv` and `_clean.csv`            ║
+║    ├─ Run your `prepare_dataset.py` or `validate_preprocessed_dataset.py`║
+║    └─ Output manifests: `common_voice_cebuano_manifest.csv` (if any), `my_recordings_manifest.csv`║
+╠════════════════════════════════════════════════════════════════╣
+║ 4. Merge Manifests                                             ║
+║    ├─ Use `merge_manifests.py`                                 ║
+║    └─ Produces a unified `final_bisaya_manifest.csv`           ║
+╠════════════════════════════════════════════════════════════════╣
+║                         Training Stage                         ║
+╠════════════════════════════════════════════════════════════════╣
+║ 5. Prepare Hugging Face Dataset                                ║
+║    ├─ Load with `Dataset.from_pandas(final_bisaya_manifest.csv)`║
+║    ├─ Map: load audio → resample → tokenize text → add labels  ║
+║    ├─ Split dataset:                                           ║
+║    │    • `synthetic` vs `real`                                ║
+║    │    • Create train and eval splits                         ║
+╠════════════════════════════════════════════════════════════════╣
+║ 6. Train Wav2Vec2 ASR                                          ║
+║    ├─ Call `train_wav2vec2.py`                                 ║
+║    │   ├→ Synthetic + real data for training                   ║
+║    │   ├→ Evaluate only on real audio subset                   ║
+║    │   └→ Optimize WER                                         ║
+╠════════════════════════════════════════════════════════════════╣
+║                           Post-Training                        ║
+╠════════════════════════════════════════════════════════════════╣
+║ 7. Evaluate & Iterate                                          ║
+║    ├─ Inspect WER logs (`docs/validation_metrics.md`)          ║
+║    ├─ Adjust text corpus, resynthesis if needed                ║
+║    └─ Real audio fine-tuning or additional synthetic data      ║ 
+╚════════════════════════════════════════════════════════════════╝
+
+
+Text inputs: your Kaggle CSVs → cebuano_text_corpus.txt
+
+Synthetic audio: prepare_synthetic_cebuano.py → synthetic_manifest.csv
+
+Real audio: bisaya_dataset*.csv via your existing prepare/validate scripts → real manifests
+
+Merge: merge_manifests.py → final combined manifest
+
+Training: train_wav2vec2.py attaches to your updated flow
+
+graph TD
+    A[Clean raw CSV] --> B[Generate text corpus]
+    B --> C[Synthesize audio with Coqui TTS]
+    C --> D[synthetic_manifest.csv]
+    D --> E[prepare_training_dataset.py]
+    E --> F[train.py]
