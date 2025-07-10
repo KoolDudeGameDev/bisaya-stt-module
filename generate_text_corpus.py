@@ -2,10 +2,11 @@
 
 import pandas as pd
 
-# Try to load with proper quoting
+# Try to load with proper encoding and quoting
 try:
     df = pd.read_csv(
-        "bisaya-dataset/Daddy Ben Scripts.csv",
+        "bisaya-dataset/DaddyBen.csv",
+        encoding="cp1252",
         quoting=1,  # csv.QUOTE_ALL
         on_bad_lines="warn",  # skip problematic rows
         engine="python"       # more robust parser
@@ -27,7 +28,7 @@ lines = df["Line"].dropna().unique().tolist()
 clean_lines = [line.strip() for line in lines if line.strip()]
 
 # Save
-with open("cebuano_text_corpus.txt", "w", encoding="utf-8") as f:
+with open("cebuano_text_corpus_extra.txt", "w", encoding="utf-8") as f:
     for line in clean_lines:
         f.write(line + "\n")
 
