@@ -4,7 +4,7 @@ from datasets import Dataset, Audio
 import pandas as pd
 
 # Load CSV manifest
-df = pd.read_csv("final_bisaya_manifest.csv")
+df = pd.read_csv("data/synthetic/manifests/manifest_cleaned.csv")
 
 # Optionally inspect
 print(df.head())
