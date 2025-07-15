@@ -77,7 +77,7 @@ synthetic_dfs = []
 version_folders = sorted([d for d in os.listdir(SYNTH_BASE_DIR) if os.path.isdir(os.path.join(SYNTH_BASE_DIR, d)) and d.startswith("v")])
 
 for version in version_folders:
-    manifest_path = os.path.join(SYNTH_BASE_DIR, version, f"manifest_{version}_cleaned.csv")
+    manifest_path = os.path.join(SYNTH_BASE_DIR, version, f"manifest_{version}.csv")
     if not os.path.exists(manifest_path):
         print(f"⚠️ Skipping {version} — cleaned manifest not found.")
         continue
