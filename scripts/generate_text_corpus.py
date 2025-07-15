@@ -1,35 +1,49 @@
-# generate_text_corpus.py
-
 import pandas as pd
+import os
+import argparse
 
-# Try to load with proper encoding and quoting
+# ========== ARGPARSE ==========
+parser = argparse.ArgumentParser(description="Generate clean Cebuano corpus from CSV file.")
+parser.add_argument("--csv", required=True, help="Path to CSV file (e.g. cebuano_ipa_dataset.csv)")
+parser.add_argument("--version", required=True, help="Corpus version tag (e.g. v2, ipa_set_1)")
+args = parser.parse_args()
+
+CSV_PATH = args.csv
+VERSION = args.version.strip()
+OUT_PATH = f"data/raw/cebuano_text_corpus_{VERSION}.txt"
+# ==============================
+
+# ========== LOAD CSV ==========
 try:
     df = pd.read_csv(
-        "bisaya-dataset/DaddyBen.csv",
-        encoding="cp1252",
-        quoting=1,  # csv.QUOTE_ALL
-        on_bad_lines="warn",  # skip problematic rows
-        engine="python"       # more robust parser
+        CSV_PATH,
+        encoding="utf-8",  # ✅ Fix: Use UTF-8 for IPA compatibility
+        quoting=1,
+        on_bad_lines="warn",
+        engine="python"
     )
 except Exception as e:
-    print("Error reading CSV:", e)
+    print(f"❌ Failed to load CSV: {e}")
     raise
 
-# Show preview
-print("Loaded data preview:")
-print(df.head())
+print(f"✅ Loaded CSV: {CSV_PATH}")
+# ==============================
 
-# Check columns
-if "Line" not in df.columns:
-    raise ValueError(f"Expected column 'Line', found: {list(df.columns)}")
+# ========== EXTRACT TEXT COLUMN ==========
+# Use `word` column since this dataset uses that label for Cebuano words
+if "word" not in df.columns:
+    raise ValueError(f"❌ 'word' column not found. Found: {df.columns}")
 
-# Drop NAs and deduplicate
-lines = df["Line"].dropna().unique().tolist()
-clean_lines = [line.strip() for line in lines if line.strip()]
+texts = df["word"].dropna().astype(str).str.strip()
+texts = texts[texts != ""].unique()
+# =========================================
 
-# Save
-with open("cebuano_text_corpus_extra.txt", "w", encoding="utf-8") as f:
-    for line in clean_lines:
+# ========== SAVE TO OUTPUT ==========
+os.makedirs(os.path.dirname(OUT_PATH), exist_ok=True)
+
+with open(OUT_PATH, "w", encoding="utf-8") as f:
+    for line in texts:
         f.write(line + "\n")
 
-print(f"Saved {len(clean_lines)} lines to cebuano_text_corpus.txt")
+print(f"✅ Saved {len(texts)} Cebuano lines to: {OUT_PATH}")
+# ====================================
