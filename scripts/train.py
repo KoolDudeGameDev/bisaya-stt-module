@@ -4,6 +4,7 @@ import torch
 import os
 from datetime import datetime
 from jiwer import wer
+from train_callbacks import LiveSampleLogger
 
 # === VERSION TAGS ===
 DATASET_VERSION = "v1_training_ready"
@@ -12,16 +13,15 @@ MODEL_VERSION = "v1_bisaya"
 
 # === Load dataset and processor ===
 raw_dataset = load_from_disk(f"data/processed/{DATASET_VERSION}")
-dataset = raw_dataset["train"].train_test_split(test_size=0.1)
 processor = Wav2Vec2Processor.from_pretrained(f"processor/{PROCESSOR_VERSION}")
 
 # === Filter out long samples (>15s) ===
 MAX_INPUT_LENGTH_SEC = 15
 max_len = int(processor.feature_extractor.sampling_rate * MAX_INPUT_LENGTH_SEC)
-dataset = dataset.filter(lambda x: len(x["input_values"]) <= max_len)
+filtered_dataset = raw_dataset.filter(lambda x: len(x["input_values"]) <= max_len)
 
 # === Split into train/test ===
-dataset = dataset.train_test_split(test_size=0.1)
+dataset = filtered_dataset["train"].train_test_split(test_size=0.1)
 print(f"✅ Dataset: {len(dataset['train'])} train / {len(dataset['test'])} test samples")
 
 # === Load pre-trained model (Round 2 finetune) ===
@@ -30,6 +30,14 @@ model = Wav2Vec2ForCTC.from_pretrained(
     ctc_loss_reduction="mean",
     pad_token_id=processor.tokenizer.pad_token_id,
 )
+
+# Manually resize the final layer (output projection) to match tokenizer vocab size
+vocab_size = len(processor.tokenizer)
+model.lm_head = torch.nn.Linear(model.lm_head.in_features, vocab_size, bias=True)
+model.config.vocab_size = vocab_size
+
+print(f"Tokenizer vocab size: {vocab_size}")
+print(f"Model vocab size: {model.config.vocab_size}")
 
 # === Data collator (with dynamic padding) ===
 class DataCollatorCTCWithPadding:
@@ -103,6 +111,7 @@ trainer = Trainer(
     tokenizer=processor,
     data_collator=data_collator,
     compute_metrics=compute_metrics,
+    callbacks=[LiveSampleLogger(processor, dataset["test"])],
 )
 
 # === Begin training ===
