@@ -45,7 +45,7 @@ if __name__ == "__main__":
     # Apply transformation
     prepared = dataset.map(
         prepare,
-        remove_columns=dataset["train"].column_names,
+        remove_columns=[col for col in dataset["train"].column_names if col not in ("text", "path")],
         num_proc=4  # Use multiprocessing
     )
 

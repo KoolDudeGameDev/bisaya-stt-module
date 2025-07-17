@@ -116,7 +116,11 @@ trainer = Trainer(
 
 # === Begin training ===
 print("🚀 Starting Round 2 fine-tuning...")
-trainer.train()
+#trainer.train()
+
+# Resume Checkpoint training
+# trainer.train(resume_from_checkpoint=True)
+trainer.train(resume_from_checkpoint="models/wav2vec2/v1_bisaya/checkpoint-100")
 
 # === Save model & processor ===
 trainer.save_model(f"models/wav2vec2/{MODEL_VERSION}")
