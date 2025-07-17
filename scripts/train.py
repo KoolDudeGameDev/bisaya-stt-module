@@ -111,15 +111,11 @@ trainer = Trainer(
     tokenizer=processor,
     data_collator=data_collator,
     compute_metrics=compute_metrics,
-    callbacks=[LiveSampleLogger(processor, dataset["test"])],
+    callbacks=[LiveSampleLogger(processor, dataset["test"])]
 )
 
 # === Begin training ===
 print("🚀 Starting Round 2 fine-tuning...")
-#trainer.train()
-
-# Resume Checkpoint training
-# trainer.train(resume_from_checkpoint=True)
 trainer.train(resume_from_checkpoint="models/wav2vec2/v1_bisaya/checkpoint-100")
 
 # === Save model & processor ===
@@ -127,3 +123,9 @@ trainer.save_model(f"models/wav2vec2/{MODEL_VERSION}")
 processor.save_pretrained(f"models/wav2vec2/{MODEL_VERSION}")
 
 print(f"✅ Model saved to models/wav2vec2/{MODEL_VERSION}")
+
+# === Push to Hugging Face ===
+print("📤 Uploading best checkpoint to Hugging Face...")
+from scripts.auto_push_checkpoint import push_checkpoint
+push_checkpoint(model_dir=f"models/wav2vec2/{MODEL_VERSION}", tag=MODEL_VERSION)
+print("🎉 Upload complete.")
