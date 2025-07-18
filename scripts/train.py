@@ -5,13 +5,17 @@ import os
 from datetime import datetime
 from jiwer import wer
 from train_callbacks import LiveSampleLogger
+from loss_plot_callback import LossPlotCallback
+
+torch.set_num_threads(os.cpu_count())
 
 # === VERSION TAGS ===
-DATASET_VERSION = "v1_training_ready"
+DATASET_VERSION = "v1_training_ready_grapheme"
 PROCESSOR_VERSION = "v1_grapheme"
 MODEL_VERSION = "v1_bisaya"
 
 # === Load dataset and processor ===
+print("🔍 Loading dataset and processor...")
 raw_dataset = load_from_disk(f"data/processed/{DATASET_VERSION}")
 processor = Wav2Vec2Processor.from_pretrained(f"processor/{PROCESSOR_VERSION}")
 
@@ -25,19 +29,20 @@ dataset = filtered_dataset["train"].train_test_split(test_size=0.1)
 print(f"✅ Dataset: {len(dataset['train'])} train / {len(dataset['test'])} test samples")
 
 # === Load pre-trained model (Round 2 finetune) ===
+print("🔧 Loading base model...")
 model = Wav2Vec2ForCTC.from_pretrained(
-    "kylegregory/wav2vec2-bisaya",  # From Round 1 checkpoint
+    "kylegregory/wav2vec2-bisaya", 
     ctc_loss_reduction="mean",
+    ctc_zero_infinity=True,
     pad_token_id=processor.tokenizer.pad_token_id,
 )
 
-# Manually resize the final layer (output projection) to match tokenizer vocab size
+# === Resize model output to match new tokenizer vocab ===
 vocab_size = len(processor.tokenizer)
 model.lm_head = torch.nn.Linear(model.lm_head.in_features, vocab_size, bias=True)
 model.config.vocab_size = vocab_size
-
-print(f"Tokenizer vocab size: {vocab_size}")
-print(f"Model vocab size: {model.config.vocab_size}")
+print(f"🧠 Tokenizer vocab size: {vocab_size}")
+print(f"🧠 Model vocab size: {model.config.vocab_size}")
 
 # === Data collator (with dynamic padding) ===
 class DataCollatorCTCWithPadding:
@@ -67,31 +72,37 @@ def compute_metrics(pred):
     pred_str = processor.batch_decode(pred_ids)
     label_str = processor.batch_decode(pred.label_ids, group_tokens=False)
 
+    print("\n🔍 Live Eval Debug:")
+    for ref, hyp in list(zip(label_str, pred_str))[:3]:
+        print("🧾 REF:", ref)
+        print("🔊 HYP:", hyp)
+
     error_rate = wer(label_str, pred_str)
 
-    # Log to file
     os.makedirs("docs", exist_ok=True)
     with open("docs/validation_metrics.md", "a", encoding="utf-8") as f:
         f.write(f"{datetime.now().isoformat()} - WER: {error_rate:.4f}\n")
 
     return {"wer": error_rate}
 
-# === Training arguments ===
+# === Training Arguments ===
 training_args = TrainingArguments(
     output_dir=f"models/wav2vec2/{MODEL_VERSION}",
     evaluation_strategy="steps",
-    eval_steps=100,
+    eval_steps=500,
     save_strategy="steps",
-    save_steps=100,
+    save_steps=500,
     save_total_limit=3,
-    per_device_train_batch_size=2,
-    per_device_eval_batch_size=2,
-    gradient_accumulation_steps=2,
+    per_device_train_batch_size=1,
+    per_device_eval_batch_size=1,
+    gradient_accumulation_steps=4,
+    gradient_checkpointing=True,
+    gradient_checkpointing_kwargs={"use_reentrant": False},
     num_train_epochs=30,
     learning_rate=5e-5,
     lr_scheduler_type="linear",
     warmup_steps=500,
-    logging_steps=10,
+    logging_steps=50,
     logging_dir="./logs",
     logging_first_step=True,
     seed=42,
@@ -99,10 +110,14 @@ training_args = TrainingArguments(
     metric_for_best_model="wer",
     greater_is_better=False,
     remove_unused_columns=False,
-    fp16=False,  # Set True if your GPU supports it (e.g. RTX 30xx)
+    max_grad_norm=1.0,
+    fp16=False,
 )
 
-# === Initialize trainer ===
+# === Freeze feature extractor (optional but useful) ===
+model.freeze_feature_encoder()
+
+# === Trainer ===
 trainer = Trainer(
     model=model,
     args=training_args,
@@ -111,17 +126,16 @@ trainer = Trainer(
     tokenizer=processor,
     data_collator=data_collator,
     compute_metrics=compute_metrics,
-    callbacks=[LiveSampleLogger(processor, dataset["test"])]
+    callbacks=[LiveSampleLogger(processor, dataset["test"]), LossPlotCallback()],
 )
 
 # === Begin training ===
 print("🚀 Starting Round 2 fine-tuning...")
-trainer.train(resume_from_checkpoint="models/wav2vec2/v1_bisaya/checkpoint-100")
+trainer.train()
 
 # === Save model & processor ===
 trainer.save_model(f"models/wav2vec2/{MODEL_VERSION}")
 processor.save_pretrained(f"models/wav2vec2/{MODEL_VERSION}")
-
 print(f"✅ Model saved to models/wav2vec2/{MODEL_VERSION}")
 
 # === Push to Hugging Face ===

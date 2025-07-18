@@ -42,6 +42,8 @@ def load_and_clean_manifest(path, source_name, version_prefix=None):
 
     # Clean text and duration
     df["text"] = df["text"].astype(str).str.strip().str.lower()
+    df["text"] = df["text"].str.replace(" ", "|", regex=False)  # CTC-compatible space
+
 
     # Ensure duration exists or recalculate
     if "duration_sec" not in df.columns or df["duration_sec"].isnull().any():
@@ -67,6 +69,8 @@ def load_and_clean_manifest(path, source_name, version_prefix=None):
     if version_prefix:
         df["filename"] = df["path"].apply(lambda p: os.path.basename(p))
         df["filename"] = df["filename"].apply(lambda f: f"{version_prefix}_{f}" if not f.startswith(version_prefix) else f)
+
+    print(f"📊 {source_name}: Loaded {len(df)} valid rows after cleaning.")
 
     return df.reset_index(drop=True)
 

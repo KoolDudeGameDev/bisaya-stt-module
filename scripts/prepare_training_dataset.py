@@ -1,57 +1,67 @@
 # scripts/prepare_training_dataset.py
 
 import os
+import pandas as pd
 import torchaudio
-from datasets import load_from_disk, Audio
+from datasets import Dataset, DatasetDict, Audio
 from transformers import Wav2Vec2Processor
+from pathlib import Path
 
 # === VERSION TAGS ===
-DATASET_VERSION = "v1_bisaya"
+MANIFEST_PATH = "data/final/final_train_manifest.csv"
 PROCESSOR_VERSION = "v1_grapheme"
-OUTPUT_VERSION = "v1_training_ready"
+OUTPUT_VERSION = "v1_training_ready_grapheme"
 
-# === Global processor object (used by child processes) ===
+# === Load processor globally for multiprocessing ===
 processor = None
 
-# === Prepare audio + transcription ===
+# === Sample preparation function ===
 def prepare(batch):
     global processor
     if processor is None:
         processor = Wav2Vec2Processor.from_pretrained(f"processor/{PROCESSOR_VERSION}")
 
-    # Audio data is automatically loaded into batch["path"]["array"]
     audio = batch["path"]
 
-    # Convert audio to input_values
+    # Extract audio input values
     batch["input_values"] = processor(
         audio["array"], sampling_rate=16000
     ).input_values[0]
 
-    # Convert text to token IDs
+    # Encode text to label token IDs
     batch["labels"] = processor.tokenizer(
         batch["text"], return_attention_mask=False
     ).input_ids
 
     return batch
 
-# === Entry point (Windows-safe multiprocessing) ===
+# === Entry point ===
 if __name__ == "__main__":
-    # Load dataset
-    dataset = load_from_disk(f"data/preprocessed/{DATASET_VERSION}")
+    # Step 1: Load CSV
+    df = pd.read_csv(MANIFEST_PATH)
 
-    # Cast audio column to ensure automatic audio loading
+    if not {"path", "text"}.issubset(df.columns):
+        raise ValueError("❌ Manifest must contain 'path' and 'text' columns.")
+
+    # Step 2: Convert to Hugging Face Dataset
+    dataset = Dataset.from_pandas(df[["path", "text"]])
+
+    # Step 3: Ensure audio loading
     dataset = dataset.cast_column("path", Audio(sampling_rate=16000))
 
-    # Apply transformation
-    prepared = dataset.map(
+    # Step 4: Tokenize & preprocess
+    dataset = dataset.map(
         prepare,
-        remove_columns=[col for col in dataset["train"].column_names if col not in ("text", "path")],
-        num_proc=4  # Use multiprocessing
+        remove_columns=dataset.column_names,
+        num_proc=4,
+        desc="🔄 Preparing dataset...",
     )
 
-    # Save processed dataset
-    output_dir = f"data/processed/{OUTPUT_VERSION}"
-    os.makedirs(output_dir, exist_ok=True)
-    prepared.save_to_disk(output_dir)
+    # Step 5: Save as DatasetDict
+    dataset_dict = DatasetDict({"train": dataset})
 
-    print(f"[✅] Training-ready dataset saved to: {output_dir}")
+    output_path = Path(f"data/processed/{OUTPUT_VERSION}")
+    output_path.mkdir(parents=True, exist_ok=True)
+    dataset_dict.save_to_disk(output_path)
+
+    print(f"✅ Training-ready dataset saved to: {output_path}")
