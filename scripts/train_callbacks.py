@@ -16,7 +16,10 @@ class LiveSampleLogger(TrainerCallback):
                 pred_ids = torch.argmax(logits, dim=-1)
                 transcription = self.processor.batch_decode(pred_ids)[0]
 
+            # Decode labels into reference text
+            reference = self.processor.decode(sample["labels"], group_tokens=False)
+
             print(f"[🔎 Sample {i+1}]")
-            print("📌 Reference :", sample["text"])
+            print("📌 Reference :", reference)
             print("🧠 Predicted :", transcription)
             print("---")

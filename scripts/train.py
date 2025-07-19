@@ -6,6 +6,7 @@ from datetime import datetime
 from jiwer import wer
 from train_callbacks import LiveSampleLogger
 from loss_plot_callback import LossPlotCallback
+import shutil
 
 torch.set_num_threads(os.cpu_count())
 
@@ -74,6 +75,8 @@ def compute_metrics(pred):
 
     print("\n🔍 Live Eval Debug:")
     for ref, hyp in list(zip(label_str, pred_str))[:3]:
+        if "[UNK]" in ref or "[UNK]" in hyp:
+            continue  # Skip noisy output
         print("🧾 REF:", ref)
         print("🔊 HYP:", hyp)
 
@@ -115,7 +118,28 @@ training_args = TrainingArguments(
 )
 
 # === Freeze feature extractor (optional but useful) ===
-model.freeze_feature_encoder()
+#model.freeze_feature_encoder()
+
+# === Patch torch.load for RNG checkpoint state ===
+import builtins
+import torch.serialization
+
+original_load_rng_state = Trainer._load_rng_state
+
+def patched_load_rng_state(self, checkpoint_path):
+    import os
+
+    rng_file = os.path.join(checkpoint_path, "rng_state.pth")
+    if os.path.exists(rng_file):
+        try:
+            with torch.serialization.safe_globals(["numpy.core.multiarray._reconstruct"]):
+                return original_load_rng_state(self, checkpoint_path)
+        except Exception as e:
+            print(f"⚠️ Failed to load RNG state from {rng_file}: {e}")
+            print("🚨 Continuing without RNG state (training is still safe but won't be 100% reproducible).")
+    return None
+
+Trainer._load_rng_state = patched_load_rng_state
 
 # === Trainer ===
 trainer = Trainer(
@@ -131,7 +155,21 @@ trainer = Trainer(
 
 # === Begin training ===
 print("🚀 Starting Round 2 fine-tuning...")
-trainer.train()
+try:
+    trainer.train(resume_from_checkpoint=True)
+except PermissionError as e:
+    print(f"❌ Caught PermissionError during checkpoint saving: {e}")
+    temp_path = str(e).split("'")[1]  # Extract temp path
+    dest_path = str(e).split("'")[3]  # Extract final path
+    print(f"🔁 Attempting manual fix: Moving {temp_path} → {dest_path}")
+    try:
+        if os.path.exists(dest_path):
+            shutil.rmtree(dest_path)
+        shutil.move(temp_path, dest_path)
+        print("✅ Manual move successful. You may resume training.")
+    except Exception as move_err:
+        print(f"❌ Failed to manually move checkpoint: {move_err}")
+        raise
 
 # === Save model & processor ===
 trainer.save_model(f"models/wav2vec2/{MODEL_VERSION}")
