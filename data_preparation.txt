@@ -1,33 +1,68 @@
-             [setup_project.py]
-                     │
-      ┌──────────────┴──────────────┐
-      │                             │
-[generate_text_corpus.py]    [generate_synthetic_data.py]
-      │                             │
-[prepare_synthetic_cebuano.py] ←── [add_audio.py]
-      │
-[review_manifest.py] ──→ [train_ready_manifest.py]
-      │
-[validate_and_augment_dataset.py]
-      │
-[prepare_dataset.py | versioned_prepare_dataset.py]
-      │
-[validate_preprocessed_dataset.py]
-      │
-[prepare_tokenizer.py]
-      │
-[local_tokenizer.py] ─────┐
-                          │
-[local_processor.py] ─────┘
-      │
-[prepare_training_dataset.py]
-      │
-[train.py]
-      │
-[test_model.py | train_callbacks.py]
-      │
-[record_and_transcribe.py | speech_to_text.py]
-      │
-[hf_push.py]
-      │
-[prepare_hf_dataset.py]
+                          ┌──────────────────────────┐
+                          │  setup_project.py        │  ← Project scaffolding & directories
+                          └────────────┬─────────────┘
+                                       │
+              ┌────────────────────────┴────────────────────────┐
+              │                                                 │
+   ┌──────────▼──────────┐                         ┌────────────▼─────────────┐
+   │ generate_text_corpus.py │                    │ generate_synthetic_data.py │
+   └──────────┬──────────┘                         └────────────┬─────────────┘
+              │                                                 │
+   ┌──────────▼────────────┐                         ┌──────────▼──────────────┐
+   │ prepare_synthetic_cebuano.py │                 │ add_audio.py (TTS output)│
+   └──────────┬────────────┘                         └──────────┬──────────────┘
+              │                                                 │
+        ┌─────▼──────────────────────────────┐    ┌─────────────▼──────────────┐
+        │ review_manifest.py (check alignments) │  │ record_and_transcribe.py (manual)│
+        └──────────────┬──────────────────────┘    └─────────────┬────────────┘
+                       │                                        │
+                  ┌────▼─────────────────────────────┐  ┌───────▼──────────────┐
+                  │ train_ready_manifest.py          │  │ validate_and_augment_dataset.py │
+                  │ (merge all dataset sources)      │  │ (final pass on quality & labels)│
+                  └──────────────┬───────────────────┘  └──────────────┬────────┘
+                                 │                                     │
+                        ┌────────▼───────────┐         ┌──────────────▼───────────┐
+                        │ prepare_dataset.py │ ← for single CSV      │ versioned_prepare_dataset.py │ ← versioned dataset loader
+                        └────────┬───────────┘         └──────────────┬───────────┘
+                                 │                                     │
+                        ┌────────▼───────────────────────────┐
+                        │ validate_preprocessed_dataset.py    │  ← Ensure all samples are loadable
+                        └────────┬────────────────────────────┘
+                                 │
+                        ┌────────▼───────────────┐
+                        │ prepare_tokenizer.py   │ ← Generate grapheme vocab
+                        └────────┬───────────────┘
+                                 │
+        ┌────────────────────────▼────────────────────┐
+        │ local_tokenizer.py & local_processor.py     │ ← Save tokenizer & processor for reuse
+        └────────────────────────┬────────────────────┘
+                                 │
+                    ┌────────────▼────────────┐
+                    │ prepare_training_dataset.py │ ← Encode audio/text as features
+                    └────────────┬────────────┘
+                                 │
+                          ┌──────▼───────┐
+                          │   train.py   │ ← Round 2 fine-tuning using HF checkpoint
+                          └──────┬───────┘
+                                 │
+                     ┌───────────▼────────────┐
+                     │ train_callbacks.py     │ ← Logs live WER from eval set
+                     └──────────┬─────────────┘
+                                │
+                ┌───────────────▼────────────────┐
+                │ auto_push_checkpoint.py        │ ← Push local model to HF Hub
+                └──────────────┬─────────────────┘
+                               │
+                     ┌─────────▼────────────┐
+                     │ hf_push.py (legacy)  │ ← Already replaced by auto_push
+                     └─────────┬────────────┘
+                               │
+                    ┌──────────▼──────────────┐
+                    │ prepare_hf_dataset.py   │ ← Prepare dataset on HF (optional)
+                    └─────────────────────────┘
+
+POST-TRAINING TOOLS:
+    ├─ transcribe_file.py       → CLI tool to transcribe `.wav` via HF-hosted model
+    ├─ stt_ui.py                → Streamlit UI to transcribe audio using remote model
+    ├─ test_model.py            → Unit test trained model locally
+    ├─ tests_api.py             → REST API tests (if using Django API layer)
