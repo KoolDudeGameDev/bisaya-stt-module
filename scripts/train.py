@@ -143,37 +143,40 @@ try:
     ], key=lambda x: int(x.split("-")[1]), reverse=True)
 
     checkpoint_path = None
+    completed_epochs = 0
+
     for ckpt in checkpoints:
-        potential_path = os.path.join(checkpoint_root, ckpt, "pytorch_model.bin")
-        if os.path.exists(potential_path):
+        trainer_state_path = os.path.join(checkpoint_root, ckpt, "trainer_state.json")
+        if os.path.exists(trainer_state_path):
             checkpoint_path = os.path.join(checkpoint_root, ckpt)
+            with open(trainer_state_path, "r", encoding="utf-8") as f:
+                state = f.read()
+                import json
+                completed_epochs = int(float(json.loads(state).get("epoch", 0)))
             break
 
     if checkpoint_path:
-        print(f"🔁 Loading weights from: {checkpoint_path}")
-        model.load_state_dict(torch.load(os.path.join(checkpoint_path, "pytorch_model.bin")), strict=False)
+        print(f"🔁 Resuming from checkpoint: {checkpoint_path}")
+        print(f"🔢 Last completed epoch: {completed_epochs}")
     else:
         print("🚀 No valid checkpoints found. Starting from base model.")
 
     # === Looped Training (5 Epochs per Cycle) ===
     EPOCHS_PER_SESSION = 5
-    MAX_EPOCHS = 30  # total target
-
-    # Check if a previous training run exists (manual resume from weights only)
-    completed_epochs = 0
+    MAX_EPOCHS = 30
 
     while completed_epochs < MAX_EPOCHS:
         remaining_epochs = MAX_EPOCHS - completed_epochs
         epochs_this_round = min(EPOCHS_PER_SESSION, remaining_epochs)
 
-        print(f"🚀 Training for {epochs_this_round} epoch(s)... (Completed so far: {completed_epochs})")
-        trainer.args.num_train_epochs = completed_epochs + epochs_this_round  # absolute, not relative
+        print(f"\n🚀 Training for {epochs_this_round} epoch(s)... (Completed so far: {completed_epochs})")
+        trainer.args.num_train_epochs = completed_epochs + epochs_this_round
 
-        trainer.train(resume_from_checkpoint=False)
+        trainer.train(resume_from_checkpoint=checkpoint_path if completed_epochs == 0 else None)
 
         completed_epochs += epochs_this_round
+        checkpoint_path = None  # Only use resume_from_checkpoint in first round
 
-        # Prompt user whether to continue
         print(f"\n⏹ Completed {completed_epochs}/{MAX_EPOCHS} epochs.")
         response = input("🟢 Continue training another 5 epochs? (y/n): ").strip().lower()
         if response not in ["y", "yes"]:
