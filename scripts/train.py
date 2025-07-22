@@ -1,6 +1,6 @@
 from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor, TrainingArguments, Trainer
 from datasets import load_from_disk
-import torch, os, shutil
+import torch, os, shutil, json
 from datetime import datetime
 from jiwer import wer
 from train_callbacks import LiveSampleLogger
@@ -66,14 +66,13 @@ def compute_metrics(pred):
     print("\n🔍 Live Eval Debug:")
     for ref, hyp in list(zip(label_str, pred_str))[:3]:
         if "[UNK]" not in ref and "[UNK]" not in hyp:
-            print("🧾 REF:", ref)
+            print("📜 REF:", ref)
             print("🔊 HYP:", hyp)
 
     error_rate = wer(label_str, pred_str)
     os.makedirs("docs", exist_ok=True)
-    with open("docs/validation_metrics.md", "a", encoding="utf-8") as f:
-        f.write(f"{datetime.now().isoformat()} - WER: {error_rate:.4f}\n")
-
+    with open("docs/last_wer.json", "w", encoding="utf-8") as f:
+        json.dump({"wer": error_rate}, f)
     return {"wer": error_rate}
 
 # === Training Args ===

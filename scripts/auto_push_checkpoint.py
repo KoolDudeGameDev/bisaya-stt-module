@@ -1,21 +1,30 @@
 from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor
 from huggingface_hub import login, HfApi
 from datetime import datetime
-import argparse
-import os
-import shutil
-import sys
+import argparse, os, shutil, json
+
+def update_model_card(export_dir, tag, dataset_version, vocab_size, num_samples, wer_score):
+    template_path = "scripts/model_card_template.md"
+    output_path = os.path.join(export_dir, "README.md")
+    with open(template_path, "r", encoding="utf-8") as f:
+        content = f.read()
+    content = content.replace("{{version_tag}}", tag)
+    content = content.replace("{{timestamp}}", datetime.now().strftime("%Y-%m-%d %H:%M"))
+    content = content.replace("{{dataset_version}}", dataset_version)
+    content = content.replace("{{vocab_size}}", str(vocab_size))
+    content = content.replace("{{num_samples}}", str(num_samples))
+    content = content.replace("{{wer}}", f"{wer_score:.4f}" if wer_score else "N/A")
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write(content)
+    print("📄 README.md updated.")
 
 def push_checkpoint(model_dir: str, tag: str, repo_id: str):
     token = os.getenv("HUGGINGFACE_TOKEN")
     if not token:
         print("[❌] HUGGINGFACE_TOKEN not set in environment. Aborting.")
         return
-
-    print(f"🔑 Logging in to Hugging Face Hub as '{repo_id}'...")
     login(token=token)
     api = HfApi()
-
     try:
         api.create_repo(repo_id, repo_type="model", exist_ok=True, token=token)
     except Exception as e:
@@ -26,16 +35,27 @@ def push_checkpoint(model_dir: str, tag: str, repo_id: str):
     if os.path.exists(export_dir):
         shutil.rmtree(export_dir)
 
-    print("📦 Exporting model and processor...")
     model = Wav2Vec2ForCTC.from_pretrained(model_dir)
     processor = Wav2Vec2Processor.from_pretrained(model_dir)
-
     model.save_pretrained(export_dir, safe_serialization=True)
     processor.save_pretrained(export_dir)
 
-    version_tag = datetime.now().strftime(f"{tag}-%Y%m%d-%H%M")
-    print(f"📤 Uploading to Hugging Face Hub with tag: {version_tag}")
+    try:
+        with open("docs/last_wer.json", "r") as f:
+            wer_score = json.load(f)["wer"]
+    except:
+        wer_score = None
 
+    update_model_card(
+        export_dir,
+        tag=tag,
+        dataset_version="v1_training_ready_grapheme",
+        vocab_size=len(processor.tokenizer),
+        num_samples=0,
+        wer_score=wer_score,
+    )
+
+    version_tag = datetime.now().strftime(f"{tag}-%Y%m%d-%H%M")
     try:
         api.upload_folder(
             repo_id=repo_id,
@@ -44,18 +64,15 @@ def push_checkpoint(model_dir: str, tag: str, repo_id: str):
             commit_message=f"Auto checkpoint push: {version_tag}",
             token=token,
         )
+        print(f"[✅] Checkpoint pushed successfully: {version_tag}")
     except Exception as e:
         print(f"[❌] Upload failed: {e}")
-        return
-
-    print(f"[✅] Checkpoint pushed successfully: {version_tag}")
-
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Push model checkpoint to Hugging Face Hub.")
-    parser.add_argument("--model_dir", required=True, help="Directory of the trained model to export.")
-    parser.add_argument("--tag", required=True, help="Version tag or label (e.g., v1_bisaya).")
-    parser.add_argument("--repo", required=False, default="kylegregory/wav2vec2-bisaya", help="HF repo ID")
-
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model_dir", required=True)
+    parser.add_argument("--tag", required=True)
+    parser.add_argument("--repo", default="kylegregory/wav2vec2-bisaya")
     args = parser.parse_args()
     push_checkpoint(model_dir=args.model_dir, tag=args.tag, repo_id=args.repo)

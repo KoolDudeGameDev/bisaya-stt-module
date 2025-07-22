@@ -18,6 +18,8 @@ processor = Wav2Vec2Processor.from_pretrained(PROCESSOR_PATH)
 vocab_path = Path(PROCESSOR_PATH) / "vocab.json"
 with open(vocab_path, "r", encoding="utf-8") as f:
     vocab = json.load(f)
+    
+print("'|' in vocab:", "|" in vocab)    
 
 # === Get reverse vocab for decoding verification ===
 inv_vocab = {v: k for k, v in vocab.items()}
