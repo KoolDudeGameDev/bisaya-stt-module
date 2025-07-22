@@ -3,8 +3,8 @@ from datasets import load_from_disk
 import torch, os, shutil, json
 from datetime import datetime
 from jiwer import wer
-from train_callbacks import LiveSampleLogger
-from loss_plot_callback import LossPlotCallback
+from scripts.core.train_callbacks import LiveSampleLogger
+from scripts.core.loss_plot_callback import LossPlotCallback
 from huggingface_hub import snapshot_download
 import pandas as pd
 

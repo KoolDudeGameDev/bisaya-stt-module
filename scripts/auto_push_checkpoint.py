@@ -4,7 +4,7 @@ from datetime import datetime
 import argparse, os, shutil, json
 
 def update_model_card(export_dir, tag, dataset_version, vocab_size, num_samples, wer_score):
-    template_path = "scripts/model_card_template.md"
+    template_path = "scripts/core/model_card_template.md"
     output_path = os.path.join(export_dir, "README.md")
     with open(template_path, "r", encoding="utf-8") as f:
         content = f.read()
