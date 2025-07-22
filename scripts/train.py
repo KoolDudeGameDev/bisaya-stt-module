@@ -5,6 +5,8 @@ from datetime import datetime
 from jiwer import wer
 from train_callbacks import LiveSampleLogger
 from loss_plot_callback import LossPlotCallback
+from huggingface_hub import snapshot_download
+import pandas as pd
 
 torch.set_num_threads(os.cpu_count())
 
@@ -12,6 +14,7 @@ torch.set_num_threads(os.cpu_count())
 DATASET_VERSION = "v1_training_ready_grapheme"
 PROCESSOR_VERSION = "v1_grapheme"
 MODEL_VERSION = "v1_bisaya"
+HF_REPO_ID = "kylegregory/wav2vec2-bisaya"
 
 # === Load Dataset ===
 print("🔍 Loading dataset and processor...")
@@ -25,10 +28,36 @@ filtered_dataset = raw_dataset.filter(lambda x: len(x["input_values"]) <= max_le
 dataset = filtered_dataset["train"].train_test_split(test_size=0.1)
 print(f"✅ Dataset: {len(dataset['train'])} train / {len(dataset['test'])} test samples")
 
-# === Load Model and Resize Head ===
-print("🔧 Loading base model...")
+# === Detect Local or HF Resume Point ===
+print("🔧 Loading model...")
+checkpoint_root = f"models/wav2vec2/{MODEL_VERSION}"
+checkpoints = sorted([
+    d for d in os.listdir(checkpoint_root)
+    if d.startswith("checkpoint-") and os.path.isdir(os.path.join(checkpoint_root, d))
+], key=lambda x: int(x.split("-")[1]), reverse=True)
+
+checkpoint_path = None
+completed_epochs = 0
+
+for ckpt in checkpoints:
+    trainer_state_path = os.path.join(checkpoint_root, ckpt, "trainer_state.json")
+    if os.path.exists(trainer_state_path):
+        checkpoint_path = os.path.join(checkpoint_root, ckpt)
+        with open(trainer_state_path, "r", encoding="utf-8") as f:
+            state = f.read()
+            completed_epochs = int(float(json.loads(state).get("epoch", 0)))
+        break
+
+if checkpoint_path:
+    print(f"🔁 Resuming from checkpoint: {checkpoint_path}")
+    print(f"🔢 Last completed epoch: {completed_epochs}")
+    model_dir_to_load = checkpoint_path
+else:
+    print("📥 Downloading latest pushed model from Hugging Face...")
+    model_dir_to_load = snapshot_download(HF_REPO_ID)
+
 model = Wav2Vec2ForCTC.from_pretrained(
-    "kylegregory/wav2vec2-bisaya",
+    model_dir_to_load,
     ctc_loss_reduction="mean",
     ctc_zero_infinity=True,
     pad_token_id=processor.tokenizer.pad_token_id,
@@ -58,21 +87,39 @@ class DataCollatorCTCWithPadding:
 data_collator = DataCollatorCTCWithPadding(processor)
 
 # === Evaluation Metric ===
+WER_HISTORY = {"step": [], "wer": []}
+
 def compute_metrics(pred):
+    global WER_HISTORY
+
+    step = trainer.state.global_step
     pred_ids = torch.argmax(torch.tensor(pred.predictions), dim=-1)
     pred_str = processor.batch_decode(pred_ids)
     label_str = processor.batch_decode(pred.label_ids, group_tokens=False)
 
+    error_rate = wer(label_str, pred_str)
+
+    os.makedirs("logs", exist_ok=True)
+    WER_HISTORY["step"].append(step)
+    WER_HISTORY["wer"].append(error_rate)
+    pd.DataFrame(WER_HISTORY).to_csv("logs/val_wer_history.csv", index=False)
+
+    # Live debug
     print("\n🔍 Live Eval Debug:")
     for ref, hyp in list(zip(label_str, pred_str))[:3]:
         if "[UNK]" not in ref and "[UNK]" not in hyp:
             print("📜 REF:", ref)
             print("🔊 HYP:", hyp)
 
-    error_rate = wer(label_str, pred_str)
-    os.makedirs("docs", exist_ok=True)
-    with open("docs/last_wer.json", "w", encoding="utf-8") as f:
-        json.dump({"wer": error_rate}, f)
+    print(f"📉 Validation WER @ Step {step}: {error_rate:.4f}")
+
+    # Overfitting check
+    if len(WER_HISTORY["wer"]) >= 2:
+        prev_wer = WER_HISTORY["wer"][-2]
+        curr_wer = WER_HISTORY["wer"][-1]
+        if curr_wer > prev_wer + 0.02:
+            print(f"⚠️ WER increased from {prev_wer:.4f} to {curr_wer:.4f} — possible overfitting.")
+
     return {"wer": error_rate}
 
 # === Training Args ===
@@ -88,13 +135,15 @@ training_args = TrainingArguments(
     gradient_accumulation_steps=4,
     gradient_checkpointing=True,
     gradient_checkpointing_kwargs={"use_reentrant": False},
-    num_train_epochs=30,
+    num_train_epochs=10,
     learning_rate=5e-5,
     lr_scheduler_type="linear",
     warmup_steps=500,
     logging_steps=50,
     logging_dir="./logs",
     logging_first_step=True,
+    save_safetensors=True,
+    overwrite_output_dir=True,
     seed=42,
     load_best_model_at_end=True,
     metric_for_best_model="wer",
@@ -132,37 +181,11 @@ trainer = Trainer(
     callbacks=[LiveSampleLogger(processor, dataset["test"]), LossPlotCallback()],
 )
 
-# === Resume Model Weights If Available ===
+# === Loop Training ===
 print("🚀 Starting Round 2 fine-tuning...")
 try:
-    checkpoint_root = f"models/wav2vec2/{MODEL_VERSION}"
-    checkpoints = sorted([
-        d for d in os.listdir(checkpoint_root)
-        if d.startswith("checkpoint-") and os.path.isdir(os.path.join(checkpoint_root, d))
-    ], key=lambda x: int(x.split("-")[1]), reverse=True)
-
-    checkpoint_path = None
-    completed_epochs = 0
-
-    for ckpt in checkpoints:
-        trainer_state_path = os.path.join(checkpoint_root, ckpt, "trainer_state.json")
-        if os.path.exists(trainer_state_path):
-            checkpoint_path = os.path.join(checkpoint_root, ckpt)
-            with open(trainer_state_path, "r", encoding="utf-8") as f:
-                state = f.read()
-                import json
-                completed_epochs = int(float(json.loads(state).get("epoch", 0)))
-            break
-
-    if checkpoint_path:
-        print(f"🔁 Resuming from checkpoint: {checkpoint_path}")
-        print(f"🔢 Last completed epoch: {completed_epochs}")
-    else:
-        print("🚀 No valid checkpoints found. Starting from base model.")
-
-    # === Looped Training (5 Epochs per Cycle) ===
     EPOCHS_PER_SESSION = 5
-    MAX_EPOCHS = 30
+    MAX_EPOCHS = 10
 
     while completed_epochs < MAX_EPOCHS:
         remaining_epochs = MAX_EPOCHS - completed_epochs
@@ -174,7 +197,7 @@ try:
         trainer.train(resume_from_checkpoint=checkpoint_path if completed_epochs == 0 else None)
 
         completed_epochs += epochs_this_round
-        checkpoint_path = None  # Only use resume_from_checkpoint in first round
+        checkpoint_path = None
 
         print(f"\n⏹ Completed {completed_epochs}/{MAX_EPOCHS} epochs.")
         response = input("🟢 Continue training another 5 epochs? (y/n): ").strip().lower()
@@ -197,10 +220,23 @@ except PermissionError as e:
         raise
 
 # === Save & Push Final Model ===
+print("💾 Saving final model...")
 trainer.save_model(f"models/wav2vec2/{MODEL_VERSION}")
 processor.save_pretrained(f"models/wav2vec2/{MODEL_VERSION}")
-print(f"✅ Model saved to models/wav2vec2/{MODEL_VERSION}")
 
+# === Final Metrics Summary ===
+try:
+    loss_df = pd.read_csv("logs/loss_history.csv")
+    wer_df = pd.read_csv("logs/val_wer_history.csv")
+
+    final_loss = loss_df["loss"].iloc[-1]
+    best_wer = wer_df["wer"].min()
+    print(f"📊 Final Training Loss: {final_loss:.4f}")
+    print(f"🏆 Best Validation WER: {best_wer:.4f}")
+except Exception as e:
+    print(f"⚠️ Could not summarize final metrics: {e}")
+
+# === Upload to Hugging Face ===
 print("📤 Uploading best checkpoint to Hugging Face...")
 from scripts.auto_push_checkpoint import push_checkpoint
 push_checkpoint(model_dir=f"models/wav2vec2/{MODEL_VERSION}", tag=MODEL_VERSION)
