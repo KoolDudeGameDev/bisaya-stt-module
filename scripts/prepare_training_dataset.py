@@ -8,7 +8,7 @@ from transformers import Wav2Vec2Processor
 from pathlib import Path
 
 # === VERSION TAGS ===
-MANIFEST_PATH = "data/final/final_train_manifest.csv"
+MANIFEST_PATH = "data/final/cleaned_train_manifest.csv"
 PROCESSOR_VERSION = "v1_grapheme"
 OUTPUT_VERSION = "v1_training_ready_grapheme"
 
@@ -38,7 +38,7 @@ def prepare(batch):
 # === Entry point ===
 if __name__ == "__main__":
     # Step 1: Load CSV
-    df = pd.read_csv(MANIFEST_PATH)
+    df = pd.read_csv(MANIFEST_PATH).rename(columns={"rawpath": "path"})
 
     if not {"path", "text"}.issubset(df.columns):
         raise ValueError("❌ Manifest must contain 'path' and 'text' columns.")

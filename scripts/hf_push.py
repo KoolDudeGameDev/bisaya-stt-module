@@ -6,7 +6,7 @@ import shutil
 from datetime import datetime
 
 # Your repo ID
-repo_id = "kylegregory/wav2vec2-bisaya"
+repo_id = "kylegregory/wav2vec2-cebuano"
 
 # 1️⃣ Retrieve token from environment variable
 token = os.getenv("HUGGINGFACE_TOKEN")
@@ -21,7 +21,7 @@ login(token=token)
 # 3️⃣ Create repo if it doesn't exist (idempotent)
 api = HfApi()
 try:
-    api.create_repo(repo_id, repo_type="model", exist_ok=True, token=token)
+    api.create_repo(repo_id, repo_type="model", private=True, exist_ok=True, token=token)
     print(f"[ℹ️] Repo '{repo_id}' ensured to exist.")
 except Exception as e:
     print(f"[❌] Failed to create or access repo '{repo_id}': {e}")
@@ -29,11 +29,11 @@ except Exception as e:
 
 # 4️⃣ Load model and processor from local directory
 print("[ℹ️] Loading model and processor...")
-model = Wav2Vec2ForCTC.from_pretrained("./wav2vec2-bisaya")
-processor = Wav2Vec2Processor.from_pretrained("./wav2vec2-bisaya")
+model = Wav2Vec2ForCTC.from_pretrained("models/wav2vec2-cebuano")
+processor = Wav2Vec2Processor.from_pretrained("models/wav2vec2-cebuano")
 
 # 5️⃣ Save to a clean temp directory
-export_dir = "./wav2vec2-bisaya-export"
+export_dir = "models/wav2vec2-cebuano-export"
 
 # Remove if it exists
 if os.path.exists(export_dir):

@@ -1,0 +1,7 @@
+test_inference_single.py – for smoke test.
+
+verify_vocab_alignment.py – ensure vocab + model alignment.
+
+evaluate_valset.py – check actual WER on validation set.
+
+batch_infer_folder.py – apply model to external audio samples.

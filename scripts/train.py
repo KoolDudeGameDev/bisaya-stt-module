@@ -13,13 +13,19 @@ torch.set_num_threads(os.cpu_count())
 # === Config ===
 DATASET_VERSION = "v1_training_ready_grapheme"
 PROCESSOR_VERSION = "v1_grapheme"
-MODEL_VERSION = "v1_bisaya"
-HF_REPO_ID = "kylegregory/wav2vec2-bisaya"
+MODEL_VERSION = "v1_cebuano"
+HF_REPO_ID = "kylegregory/wav2vec2-cebuano"
 
 # === Load Dataset ===
 print("🔍 Loading dataset and processor...")
 raw_dataset = load_from_disk(f"data/processed/{DATASET_VERSION}")
 processor = Wav2Vec2Processor.from_pretrained(f"processor/{PROCESSOR_VERSION}")
+
+# === Tokenizer Debug Info ===
+pad_id = processor.tokenizer.pad_token_id
+unk_id = processor.tokenizer.unk_token_id
+blank_token_id = processor.tokenizer.convert_tokens_to_ids("|")
+print(f"🧠 Tokenizer Info — [PAD]: {pad_id}, [UNK]: {unk_id}, [BLANK '|']: {blank_token_id}")
 
 MAX_INPUT_LENGTH_SEC = 15
 max_len = int(processor.feature_extractor.sampling_rate * MAX_INPUT_LENGTH_SEC)
@@ -64,10 +70,16 @@ model = Wav2Vec2ForCTC.from_pretrained(
 )
 
 vocab_size = len(processor.tokenizer)
-model.lm_head = torch.nn.Linear(model.lm_head.in_features, vocab_size, bias=True)
-model.config.vocab_size = vocab_size
+if model.lm_head.out_features != vocab_size:
+    print(f"🔁 Patching model.lm_head from {model.lm_head.out_features} to {vocab_size}")
+    model.lm_head = torch.nn.Linear(model.lm_head.in_features, vocab_size, bias=True)
+    model.config.vocab_size = vocab_size
+
 print(f"🧠 Tokenizer vocab size: {vocab_size}")
 print(f"🧠 Model vocab size: {model.config.vocab_size}")
+
+# Freeze feature extractor
+model.freeze_feature_encoder()
 
 # === Data Collator ===
 class DataCollatorCTCWithPadding:
@@ -78,11 +90,21 @@ class DataCollatorCTCWithPadding:
     def __call__(self, features):
         input_features = [{"input_values": f["input_values"]} for f in features]
         label_features = [{"input_ids": f["labels"]} for f in features]
-        batch = self.processor.feature_extractor.pad(input_features, padding=self.padding, return_tensors="pt")
-        labels_batch = self.processor.tokenizer.pad(label_features, padding=self.padding, return_tensors="pt")
-        labels = labels_batch["input_ids"].masked_fill(labels_batch["input_ids"] == self.processor.tokenizer.pad_token_id, -100)
+
+        batch = self.processor.feature_extractor.pad(
+            input_features, padding=self.padding, return_tensors="pt"
+        )
+        labels_batch = self.processor.tokenizer.pad(
+            label_features, padding=self.padding, return_tensors="pt"
+        )
+
+        # Mask pad_token_id to -100 for CTC loss
+        labels = labels_batch["input_ids"].masked_fill(
+            labels_batch["input_ids"] == self.processor.tokenizer.pad_token_id, -100
+        )
         batch["labels"] = labels
         return batch
+
 
 data_collator = DataCollatorCTCWithPadding(processor)
 
@@ -112,6 +134,12 @@ def compute_metrics(pred):
             print("🔊 HYP:", hyp)
 
     print(f"📉 Validation WER @ Step {step}: {error_rate:.4f}")
+    
+    print(f"\n🧪 Raw pred_ids shape: {pred_ids.shape}")
+    print(f"🧪 First 3 predictions: {pred_ids[:3]}")
+    print(f"🧪 Decoded predictions: {pred_str[:3]}")
+    print(f"🧪 Decoded labels: {label_str[:3]}")
+
 
     # Overfitting check
     if len(WER_HISTORY["wer"]) >= 2:
@@ -126,19 +154,19 @@ def compute_metrics(pred):
 training_args = TrainingArguments(
     output_dir=f"models/wav2vec2/{MODEL_VERSION}",
     evaluation_strategy="steps",
-    eval_steps=500,
+    eval_steps=250,
     save_strategy="steps",
-    save_steps=1000,
+    save_steps=500,
     save_total_limit=3,
     per_device_train_batch_size=1,
     per_device_eval_batch_size=1,
-    gradient_accumulation_steps=4,
+    gradient_accumulation_steps=8,
     gradient_checkpointing=True,
     gradient_checkpointing_kwargs={"use_reentrant": False},
     num_train_epochs=10,
-    learning_rate=5e-5,
+    learning_rate=2e-5,
     lr_scheduler_type="linear",
-    warmup_steps=500,
+    warmup_steps=100,
     logging_steps=50,
     logging_dir="./logs",
     logging_first_step=True,
@@ -182,7 +210,7 @@ trainer = Trainer(
 )
 
 # === Loop Training ===
-print("🚀 Starting Round 2 fine-tuning...")
+print("🚀 Starting Round 1 fine-tuning...")
 try:
     EPOCHS_PER_SESSION = 5
     MAX_EPOCHS = 10
@@ -194,6 +222,16 @@ try:
         print(f"\n🚀 Training for {epochs_this_round} epoch(s)... (Completed so far: {completed_epochs})")
         trainer.args.num_train_epochs = completed_epochs + epochs_this_round
 
+        # Live sanity check on random test sample
+        sample = dataset["test"][0]
+        input_values = torch.tensor([sample["input_values"]])
+        with torch.no_grad():
+            logits = model(input_values).logits
+            pred_ids = torch.argmax(logits, dim=-1)
+            decoded = processor.batch_decode(pred_ids)
+            print(f"\n🧪 Live Decode Check — Prediction: {decoded[0]}")
+
+        # Train the model
         trainer.train(resume_from_checkpoint=checkpoint_path if completed_epochs == 0 else None)
 
         completed_epochs += epochs_this_round
@@ -239,5 +277,20 @@ except Exception as e:
 # === Upload to Hugging Face ===
 print("📤 Uploading best checkpoint to Hugging Face...")
 from scripts.auto_push_checkpoint import push_checkpoint
-push_checkpoint(model_dir=f"models/wav2vec2/{MODEL_VERSION}", tag=MODEL_VERSION)
+push_checkpoint(
+    model_dir=f"models/wav2vec2/{MODEL_VERSION}", 
+    tag=MODEL_VERSION, 
+    repo_id=HF_REPO_ID
+)
 print("🎉 Upload complete.")
+
+# === Optional: Clean up older local checkpoints ===
+cleanup = input("🧹 Delete old local checkpoints to save space? (y/n): ").strip().lower()
+if cleanup in ["y", "yes"]:
+    try:
+        for ckpt in checkpoints:
+            ckpt_path = os.path.join(checkpoint_root, ckpt)
+            shutil.rmtree(ckpt_path)
+            print(f"🗑️ Deleted {ckpt_path}")
+    except Exception as e:
+        print(f"⚠️ Failed to delete some checkpoints: {e}")

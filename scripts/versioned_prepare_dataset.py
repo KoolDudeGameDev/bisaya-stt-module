@@ -4,7 +4,7 @@ import pandas as pd
 
 # === VERSION TAGS ===
 DATASET_VERSION = "v1_bisaya"
-INPUT_CSV = "data/final/final_train_manifest.csv"
+INPUT_CSV = "data/final/cleaned_train_manifest.csv"
 OUTPUT_DIR = Path(f"data/preprocessed/{DATASET_VERSION}")
 
 # === Normalize paths ===
@@ -28,6 +28,7 @@ def rebase_path(p):
     return str(relative_path)
 
 # Apply path rebasing
+df = df.rename(columns={"rawpath": "path"})
 df["path"] = df["path"].apply(rebase_path)
 
 # Save temp cleaned CSV

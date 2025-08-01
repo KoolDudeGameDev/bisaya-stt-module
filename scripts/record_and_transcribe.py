@@ -16,7 +16,6 @@ from datetime import datetime
 import re
 import torch
 import torchaudio
-import subprocess
 from pathlib import Path
 
 # === CONFIG ===
@@ -60,30 +59,6 @@ def playback(audio):
     print("[🔊] Playing back the recording...")
     sd.play(audio, SAMPLE_RATE)
     sd.wait()
-
-def convert_to_model_ready(audio_path):
-    output_path = audio_path.with_suffix(".wav")
-
-    command = [
-        "ffmpeg", "-y",
-        "-i", str(audio_path),
-        "-ar", str(SAMPLE_RATE),
-        "-ac", "1",
-        "-c:a", "pcm_s16le",
-        str(output_path)
-    ]
-
-    print(f"[🔄] Converting {audio_path.name} to true WAV (16kHz mono)...")
-    result = subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-
-    if result.returncode != 0:
-        print(f"[❌] FFmpeg failed on: {audio_path}")
-        return audio_path
-
-    if audio_path.suffix.lower() != ".wav":
-        os.remove(audio_path)
-
-    return output_path
 
 # === METADATA ===
 
@@ -136,12 +111,7 @@ def annotate_existing(audio_dir, df, speaker, version, transcriptions=None, auto
         if not file.suffix.lower() in [".wav", ".m4a", ".mp3", ".ogg"]:
             continue
 
-        # === Step 1: Convert first, always ===
-        clean_file = convert_to_model_ready(file)
-        if clean_file != file:
-            file = clean_file
-
-        # === Step 2: Rename only AFTER conversion ===
+        # === Step 1: Rename if needed ===
         match = pattern.match(file.name)
         if not match:
             new_name = generate_filename(version, speaker, next_index)
@@ -149,9 +119,8 @@ def annotate_existing(audio_dir, df, speaker, version, transcriptions=None, auto
             new_path = audio_dir / new_name
             file.rename(new_path)
             file = new_path
-            next_index += 1
 
-        # === Step 3: Skip if already annotated ===
+        # === Step 2: Skip if already annotated ===
         rel_path = os.path.relpath(file, BASE_DIR)
         if rel_path in df["path"].values:
             print(f"[⏩] Already annotated: {file.name}")
@@ -159,16 +128,37 @@ def annotate_existing(audio_dir, df, speaker, version, transcriptions=None, auto
 
         print(f"\n[🎧] Playing: {file.name}")
         waveform, _ = torchaudio.load(str(file))
-        playback(waveform[0].numpy())
+        audio_array = waveform[0].numpy()
+
+        while True:
+            playback(audio_array)
+            action = input("Press [a] to annotate, [r] to replay, [s] to skip and delete: ").strip().lower()
+            if action == 'a':
+                break
+            elif action == 'r':
+                continue
+            elif action == 's':
+                print(f"[🗑️] Skipping and deleting {file.name}")
+                os.remove(file)
+                break  # Exit the inner loop
+            else:
+                print("[❓] Invalid input. Try again.")
+        else:
+            continue  # Skip annotation if deleted
+
+        if not file.exists():
+            continue  # Skip annotation if file was deleted
 
         if auto:
             transcript = transcriptions[transcription_index] if transcription_index < len(transcriptions) else ""
             transcription_index += 1
-            annotate(file, df, speaker, version, transcript)
+            if annotate(file, df, speaker, version, transcript):
+                next_index += 1
         else:
-            keep = input("Annotate this file? (y/n): ").strip().lower()
-            if keep == 'y':
-                annotate(file, df, speaker, version)
+            if annotate(file, df, speaker, version):
+                next_index += 1
+
+
 
 # === CLI ===
 

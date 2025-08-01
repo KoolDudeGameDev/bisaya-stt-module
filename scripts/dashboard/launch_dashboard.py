@@ -10,6 +10,8 @@ PORT = 8501
 NGROK_PATH = "ngrok"  # Change this if using a full path
 REGION = "ap"
 
+print("✅ Streamlit app is running")
+
 def start_streamlit():
     print("🚀 Launching Streamlit dashboard...")
     subprocess.Popen(["streamlit", "run", SCRIPT_NAME], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

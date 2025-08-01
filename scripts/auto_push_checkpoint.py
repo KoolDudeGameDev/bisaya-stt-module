@@ -76,3 +76,7 @@ if __name__ == "__main__":
     parser.add_argument("--repo", default="kylegregory/wav2vec2-bisaya")
     args = parser.parse_args()
     push_checkpoint(model_dir=args.model_dir, tag=args.tag, repo_id=args.repo)
+    
+# HOW TO USE SCRIPT
+#$env:PYTHONPATH = "."
+#python scripts/train.py
