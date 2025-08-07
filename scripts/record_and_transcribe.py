@@ -33,7 +33,9 @@ def ensure_dirs(version_dir):
     return audio_dir
 
 def load_dataset():
-    return pd.read_csv(CSV_PATH) if os.path.exists(CSV_PATH) else pd.DataFrame(columns=["path", "text", "category", "speaker", "version", "timestamp"])
+    columns = ["path", "text", "category", "speaker", "version", "timestamp", "length", "quality"]
+    return pd.read_csv(CSV_PATH) if os.path.exists(CSV_PATH) else pd.DataFrame(columns=columns)
+
 
 def load_transcriptions_from_txt(txt_path):
     if os.path.exists(txt_path):
@@ -64,16 +66,28 @@ def playback(audio):
 
 def annotate(path, df, speaker, version, transcript=None):
     rel_path = os.path.relpath(path, BASE_DIR)
+    
+    # === Transcription ===
     if not transcript:
         transcript = input("Enter transcription (Bisaya): ").strip()
     else:
         print(f"[📜] Auto transcription: {transcript}")
-    category = "phrase"
+    
+    # === Load audio and compute duration ===
+    waveform, sample_rate = torchaudio.load(str(path))
+    duration_sec = waveform.size(1) / sample_rate
+    length_tag = "short" if duration_sec <= 2.5 else "long"
+
+    # === Tagging ===
+    category = "phrase"         # CATEGORY TAGGING: Default to phrase
     timestamp = datetime.now().isoformat(timespec='seconds')
-    df.loc[len(df)] = [rel_path, transcript, category, speaker, version, timestamp]
+    quality = "noisy"           # QUALITY TAGGING: Default to noisy
+
+    df.loc[len(df)] = [rel_path, transcript, category, speaker, version, timestamp, length_tag, quality]
     df.to_csv(CSV_PATH, index=False)
-    print(f"[📝] Metadata saved to {CSV_PATH}")
+    print(f"[📝] Metadata saved with length tag: {length_tag}")
     return True
+
 
 # === RECORD MODE ===
 
